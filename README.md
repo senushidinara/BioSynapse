@@ -134,3 +134,51 @@ BioSynapse-Cloud/
 │
 ├─ README.md
 └─ requirements.txt
+
+```mermaid
+graph TD
+    subgraph "BioSynapse Cloud - Living Intelligence of Earth"
+        A[🌎 Event Trigger: "Reduce urban stress"] --> B(Cognitive Core: Amazon Bedrock - Executive Brain);
+
+        subgraph "Neural Connectivity & Learning Organism"
+            B --> C{Task Dispatch: AgentCore + Strands SDK - Synapses};
+            C --routes--> D1[NeuroAgent: Cognitive Monitoring];
+            C --routes--> D2[EnviroAgent: Environmental Awareness];
+            C --routes--> D3[SocioAgent: Emotional Intelligence];
+            C --routes--> D4[EduAgent: Knowledge Intervention];
+        end
+
+        subgraph "Agent Reasoning & Action Loop"
+            D1 & D2 & D3 & D4 --process data--> E(Micro-Model Trainer: SageMaker + Step Functions - Cellular Regeneration);
+            E --learns/predicts--> F(Memory & Knowledge: Amazon Q + S3 - Hippocampus & Genomic Storage);
+            F --retrieves/stores--> E;
+            E --triggers--> G(Autonomous Action: Nova Act SDK + Lambda + API Gateway - Motor System);
+        end
+
+        G --generates raw outputs--> H(Transformation & Interpretation: AWS Transform + Lambda + S3 - DNA Translator);
+        H --produces--> I[📊 BioKnowledge Graphs];
+
+        I --monitored by--> J(Observation & Visualization: QuickSight + CloudWatch - Brain Sensory Cortex);
+        J --feedback for--> E;
+        J --reports on--> K[📈 Evolving Planetary Cognition & Metrics];
+
+        K --influences--> A; %% The loop completes
+    end
+
+    style A fill:#e0f7fa,stroke:#00bcd4,stroke-width:2px,color:#212121
+    style B fill:#ffe0b2,stroke:#ff9800,stroke-width:2px,color:#212121
+    style C fill:#d1c4e9,stroke:#673ab7,stroke-width:2px,color:#212121
+    style D1 fill:#c8e6c9,stroke:#4caf50,stroke-width:2px,color:#212121
+    style D2 fill:#c8e6c9,stroke:#4caf50,stroke-width:2px,color:#212121
+    style D3 fill:#c8e6c9,stroke:#4caf50,stroke-width:2px,color:#212121
+    style D4 fill:#c8e6c9,stroke:#4caf50,stroke-width:2px,color:#212121
+    style E fill:#ffcdd2,stroke:#f44336,stroke-width:2px,color:#212121
+    style F fill:#bbdefb,stroke:#2196f3,stroke-width:2px,color:#212121
+    style G fill:#ffecb3,stroke:#ffc107,stroke-width:2px,color:#212121
+    style H fill:#f0f4c3,stroke:#cddc39,stroke-width:2px,color:#212121
+    style I fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,color:#212121
+    style J fill:#efebe9,stroke:#795548,stroke-width:2px,color:#212121
+    style K fill:#e0f2f7,stroke:#03a9f4,stroke-width:2px,color:#212121
+
+
+
