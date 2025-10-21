@@ -6,7 +6,7 @@
 
 It unites biological, emotional, and planetary data into a single evolving cognition — a bio-neural fuel network that continuously improves its understanding of Earth’s cognitive, emotional, and ecological health.  
 
-You’re not training one model — you’re cultivating a biosphere of AI agents that reason, adapt, and evolve together like neurons in a planetary brain.
+
 
 ---
 
@@ -132,10 +132,10 @@ You’re not training one model — you’re cultivating a biosphere of AI agent
 <details>
 <summary>Click to expand Demo Video Outline 🎥</summary>
 
-1. Cinematic opening: “What if AI could grow like life?”  
+1.  “What if AI could grow like life?”  
 2. Bedrock delegating to agents.  
 3. QuickSight dashboard visualizing cognition growth and evolution.  
-4. End with: “It didn’t just learn — it evolved.”
+4. : “It didn’t just learn — it evolved.”
 
 </details>
 
@@ -183,9 +183,9 @@ BioSynapse-Cloud/
 │
 ├─ README.md
 └─ requirements.txt
-</details>
-
 ```
+<details>
+<summary>Click to expand ASCII Architecture 🖥️</summary>
 
 ```
                            ┌───────────────────────────┐
