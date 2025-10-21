@@ -134,6 +134,7 @@ BioSynapse-Cloud/
 │
 ├─ README.md
 └─ requirements.txt
+```
 
 ```mermaid
 graph TD
