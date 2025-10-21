@@ -136,7 +136,7 @@ BioSynapse-Cloud/
 └─ requirements.txt
 ```
 
-```mermaid
+```
 graph TD
     subgraph "BioSynapse Cloud - Living Intelligence of Earth"
         A[🌎 Event Trigger: "Reduce urban stress"] --> B(Cognitive Core: Amazon Bedrock - Executive Brain);
