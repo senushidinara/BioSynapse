@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioSynapse Human Override</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0d1117; color: #e6e6e6; }
+        .emergency-btn {
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.7);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 10px #ff0000; }
+            50% { transform: scale(1.05); box-shadow: 0 0 30px #ff0000; }
+            100% { transform: scale(1); box-shadow: 0 0 10px #ff0000; }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-lg bg-[#161b22] p-8 rounded-xl shadow-2xl border border-red-800/50">
+        <h1 class="text-3xl font-bold text-center mb-6 text-red-500">
+            🌌 BioSynapse System Override ✋
+        </h1>
+        <p class="text-center text-sm mb-8 text-gray-400">
+            Interfaces with the **AetherLink Agent** to send a critical `STOP_ALL_EXECUTIONS` command to the Step Functions orchestrator, pausing the evolutionary cycle.
+        </p>
+
+        <div id="status-message" class="bg-gray-800 p-3 rounded-lg text-center font-mono text-xs mb-6 text-yellow-400">
+            Status: System operational. Ready for command.
+        </div>
+
+        <button id="pause-button" 
+                class="emergency-btn w-full p-6 text-2xl font-extrabold rounded-xl 
+                       bg-red-700 hover:bg-red-800 transition duration-300">
+            PAUSE EVOLUTION CYCLE ⏸️
+        </button>
+
+        <p class="text-center text-xs mt-6 text-gray-500">
+            <span id="system-state">System State: OPERATIONAL (Evolution cycles active)</span>
+        </p>
+    </div>
+
+    <script>
+        // NOTE: Replace this with the actual API Gateway endpoint that triggers a StepFunctions.stopExecution(ARN) Lambda.
+        const PAUSE_API_ENDPOINT = 'YOUR_API_GATEWAY_ENDPOINT_TO_STOP_SF'; 
+        const EVOLUTION_STATE_MACHINE_ARN = 'arn:aws:states:REGION:ACCOUNT_ID:stateMachine:BioSynapseEvolutionCycle'; 
+        
+        const pauseButton = document.getElementById('pause-button');
+        const statusMessage = document.getElementById('status-message');
+        const systemState = document.getElementById('system-state');
+
+        async function triggerPause() {
+            if (PAUSE_API_ENDPOINT.includes('YOUR_API_GATEWAY_ENDPOINT')) {
+                statusMessage.textContent = 'ERROR: API Endpoint not configured. Update HTML file.';
+                statusMessage.classList.replace('text-yellow-400', 'text-red-500');
+                return;
+            }
+
+            pauseButton.disabled = true;
+            pauseButton.textContent = 'Sending PAUSE directive...';
+
+            try {
+                // Mocking the fetch call to the AetherLink Agent / API Gateway
+                const response = await fetch(PAUSE_API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        command: 'STOP_ALL_EXECUTIONS',
+                        target_arn: EVOLUTION_STATE_MACHINE_ARN,
+                        reason: 'Human Override Interruption',
+                    })
+                });
+
+                if (response.ok) {
+                    statusMessage.textContent = 'SUCCESS: Evolution Cycle PAUSE signal sent.';
+                    systemState.textContent = 'System State: HUMAN OVERRIDE ACTIVE (Pending Halt)';
+                    statusMessage.classList.replace('text-yellow-400', 'text-green-500');
+                    pauseButton.textContent = 'PAUSE ACTIVE';
+                    pauseButton.classList.remove('emergency-btn');
+                } else {
+                    statusMessage.textContent = `API Error: ${response.statusText}`;
+                    statusMessage.classList.replace('text-yellow-400', 'text-red-500');
+                }
+            } catch (error) {
+                statusMessage.textContent = `NETWORK ERROR: ${error.message}`;
+                statusMessage.classList.replace('text-yellow-400', 'text-red-500');
+            } finally {
+                if (!pauseButton.classList.contains('emergency-btn')) {
+                     pauseButton.textContent = 'PAUSE ACTIVE';
+                }
+                pauseButton.disabled = false;
+            }
+        }
+
+        pauseButton.addEventListener('click', triggerPause);
+
+    </script>
+</body>
+</html>
