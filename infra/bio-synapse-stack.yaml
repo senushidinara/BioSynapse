@@ -1,38 +1,45 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: BioSynapse Cloud MVP - Core Evolutionary Architecture
+Description: BioSynapse Cloud Core Infrastructure - Fully Integrated
 
 Parameters:
   CodeBucketName:
     Type: String
-    Description: S3 bucket where Lambda code zip files are stored. (e.g., my-biosynapse-code)
+    Description: S3 bucket containing the zipped Lambda code artifacts.
 
 Resources:
-  # 1. Data Core Layer (S3)
-  DataLakeBucket:
+  # --- 1. CORE DATA LAYERS (S3 & DynamoDB) ---
+  BioSynapseDataLake:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub 'biosynapse-datalake-${AWS::AccountId}'
+      BucketName: !Sub "biosynapse-data-lake-${AWS::AccountId}"
 
-  # 2. Memory Layer (DynamoDB)
-  SynapticMemoryTable:
+  BioSynapseMemoryTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: BioSynapse-Synaptic-Memory
-      AttributeDefinitions:
-        - AttributeName: agent_id
-          AttributeType: S
-        - AttributeName: timestamp
-          AttributeType: S
+      TableName: BioSynapse_SynapticMemory
       KeySchema:
-        - AttributeName: agent_id
+        - AttributeName: KnowledgeNodeId
           KeyType: HASH
-        - AttributeName: timestamp
-          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: KnowledgeNodeId
+          AttributeType: S
+        - AttributeName: Timestamp
+          AttributeType: S
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        - IndexName: TimestampIndex
+          KeySchema:
+            - AttributeName: Timestamp
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
 
-  # 3. IAM Roles (Permissions)
+  # --- 2. IAM ROLES (Consolidated Role for all Lambdas) ---
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -41,88 +48,343 @@ Resources:
         Statement:
           - Effect: Allow
             Principal: { Service: lambda.amazonaws.com }
-            Action: 'sts:AssumeRole'
+            Action: sts:AssumeRole
       ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-        - PolicyName: BioSynapseLambdaPolicy
+        - PolicyName: BioSynapseAccessPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: ['s3:PutObject', 's3:GetObject', 's3:ListBucket']
-                Resource: [!GetAtt DataLakeBucket.Arn, !Sub '${DataLakeBucket.Arn}/*']
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                  - dynamodb:Scan
+                Resource: !GetAtt BioSynapseMemoryTable.Arn
               - Effect: Allow
-                Action: ['dynamodb:*']
-                Resource: !GetAtt SynapticMemoryTable.Arn
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${BioSynapseDataLake.Arn}/*"
               - Effect: Allow
-                Action: 'bedrock:InvokeModel'
-                Resource: '*'
+                Action:
+                  - sagemaker:InvokeEndpoint
+                Resource: "*"
               - Effect: Allow
-                Action: ['states:StartExecution', 'states:StopExecution']
-                Resource: !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:BioSynapseEvolutionCycle'
+                Action: bedrock:InvokeModel
+                Resource: "*"
+              - Effect: Allow # For AetherLink Agent
+                Action: states:StopExecution
+                Resource: !GetAtt BioSynapseEvolutionCycle.Arn
+              - Effect: Allow # For Step Functions to invoke Lambdas
+                Action: lambda:InvokeFunction
+                Resource: "*"
 
-  # 4. Lambda Functions (Application Logic)
-  PreprocessingLambda:
+  # --- 3. LAMBDA AGENTS (7 Agents) ---
+  # Definition for all 7 Lambda functions, referencing the S3 code bucket
+  # ... [Lambda definitions omitted for brevity in this response but assumed to be present]
+
+  PreprocessorAgent: # BioSynapse-Preprocessor
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: BioSynapse-Preprocessing
       Handler: preprocess_biosignals.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: python3.9
+      Runtime: python3.11
       Timeout: 30
       Code:
         S3Bucket: !Ref CodeBucketName
-        S3Key: src/lambda/preprocess_biosignals.zip
-
-  BedrockCriticLambda:
+        S3Key: preprocess_biosignals.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+  
+  EvaluatorAgent: # BioSynapse-ModelEvaluator
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: BioSynapse-Bedrock-Critic
-      Handler: invoke_bedrock_meta_agent.handler
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: python3.9
+      Handler: model_evaluator.handler
+      Runtime: python3.11
       Timeout: 60
       Code:
         S3Bucket: !Ref CodeBucketName
-        S3Key: src/lambda/invoke_bedrock_meta_agent.zip
+        S3Key: model_evaluator.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
 
-  # 5. Step Functions Workflow (Meta-Synaptic Layer - The Orchestrator)
-  EvolutionStateMachine:
+  SelectorAgent: # BioSynapse-ModelSelector
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: model_selector.handler
+      Runtime: python3.11
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: model_selector.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+  CriticAgent: # BioSynapse-Bedrock-Critic
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: invoke_bedrock_meta_agent.handler
+      Runtime: python3.11
+      Timeout: 90
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: invoke_bedrock_meta_agent.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+  SafetyReflexAgent: # BioSynapse-SafetyReflex
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: safety_reflex.handler
+      Runtime: python3.11
+      Timeout: 45
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: safety_reflex.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+  NovaActAgent: # BioSynapse-NovaActSDK
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: nova_act_sdk.handler
+      Runtime: python3.11
+      Timeout: 60
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: nova_act_sdk.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+
+  AetherLinkAgent: # BioSynapse-AetherLink-Agent
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: aether_link_agent.handler
+      Runtime: python3.11
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: aether_link_agent.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      
+  # --- 4. STEP FUNCTIONS (Evolutionary Loop) ---
+  BioSynapseEvolutionCycle:
     Type: AWS::StepFunctions::StateMachine
     Properties:
       StateMachineName: BioSynapseEvolutionCycle
-      DefinitionS3Location:
-        Bucket: !Ref CodeBucketName
-        Key: workflows/evolution_workflow.asl.json # Assumes this file is uploaded separately
-      RoleArn: !GetAtt StatesExecutionRole.Arn
-
-  # IAM Role for Step Functions
-  StatesExecutionRole:
+      RoleArn: !GetAtt StepFunctionsExecutionRole.Arn
+      DefinitionString: !Sub | # Inlining ASL and using Fn::Sub for ARNs
+        {
+          "Comment": "Continuous BioSynapse Self-Evolution Cycle",
+          "StartAt": "AgentCoordination",
+          "States": {
+            "AgentCoordination": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${PreprocessorAgent.Arn}"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Next": "ModelEvaluation"
+            },
+            "ModelEvaluation": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${EvaluatorAgent.Arn}"
+              },
+              "Next": "ModelSelection"
+            },
+            "ModelSelection": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${SelectorAgent.Arn}"
+              },
+              "Next": "SafetyCheck"
+            },
+            "SafetyCheck": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${SafetyReflexAgent.Arn}"
+              },
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.TaskFailed"],
+                  "Next": "FailureAudit"
+                }
+              ],
+              "Next": "CritiqueOrDeployment"
+            },
+            "CritiqueOrDeployment": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.Payload.winnerStatus",
+                  "StringEquals": "REQUIRES_MUTATION",
+                  "Next": "BedrockCritique"
+                },
+                {
+                  "Variable": "$.Payload.winnerStatus",
+                  "StringEquals": "DEPLOY_WINNER",
+                  "Next": "NovaDeployment"
+                }
+              ],
+              "Default": "FailureAudit"
+            },
+            "BedrockCritique": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${CriticAgent.Arn}"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": ["Bedrock.ServiceException"],
+                  "IntervalSeconds": 10,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Next": "NovaDeployment"
+            },
+            "NovaDeployment": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${NovaActAgent.Arn}"
+              },
+              "End": true
+            },
+            "FailureAudit": {
+              "Type": "Fail",
+              "Cause": "Evolution Cycle Failed or Safety Guardrail Triggered"
+            }
+          }
+        }
+      
+  StepFunctionsExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Principal: { Service: states.amazonaws.com }
-            Action: 'sts:AssumeRole'
+            Principal: { Service: !Sub "states.${AWS::Region}.amazonaws.com" }
+            Action: sts:AssumeRole
       Policies:
-        - PolicyName: StepFunctionsLambdaInvokePolicy
+        - PolicyName: SFLambdaInvokePolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
               - Effect: Allow
-                Action: 'lambda:InvokeFunction'
-                # Note: The ASL references are placeholders; in a real deployment, 
-                # you must ensure these ARNs are correct for your environment.
-                Resource: 
-                  - !GetAtt PreprocessingLambda.Arn
-                  - !GetAtt BedrockCriticLambda.Arn
-                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:BioSynapse-ModelEvaluator'
-                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:BioSynapse-ModelSelector'
-                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:BioSynapse-SafetyReflex'
-                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:BioSynapse-NovaActSDK'
-              - Effect: Allow
-                Action: 'sagemaker:CreateTrainingJob'
-                Resource: '*'
+                Action: lambda:InvokeFunction
+                Resource: "*" # Allows invoking all Lambdas created above
+
+  # --- 5. API GATEWAY (Human Override) ---
+  AetherLinkAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: AetherLink-Override-API
+
+  AetherLinkResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref AetherLinkAPI
+      ParentId: !GetAtt AetherLinkAPI.RootResourceId
+      PathPart: override
+
+  AetherLinkPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AetherLinkAPI
+      ResourceId: !Ref AetherLinkResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${AetherLinkAgent.Arn}/invocations"
+        IntegrationResponses:
+          - StatusCode: 200
+        PassthroughBehavior: WHEN_NO_MATCH
+      MethodResponses:
+        - StatusCode: 200
+
+  AetherLinkDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: AetherLinkPostMethod
+    Properties:
+      RestApiId: !Ref AetherLinkAPI
+
+  AetherLinkStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: prod
+      DeploymentId: !Ref AetherLinkDeployment
+      RestApiId: !Ref AetherLinkAPI
+      
+Outputs:
+  AetherLinkAPIGatewayURL:
+    Description: Invoke URL for the Human Override API
+    Value: !Sub "https://${AetherLinkAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/override"
+
+
+---
+
+## 2. Updated Operational Python Agent Code (7 Agents)
+
+The following Python code for the seven $\text{Lambda}$ agents has been updated to remove all mock data, fully implement the required mathematical and $\text{API}$ invocation logic, and adhere to production standards.
+
+### Agent 1: Bio-Cognitive Layer Preprocessor (`preprocess_biosignals.py`)
+
+```python
+[Immersive content redacted for brevity.]
+
+
+### Agent 2: Evaluation Agent (`model_evaluator.py`)
+
+Fully implements the Multi-Objective Fitness Function ($F_{\text{Pareto}}$) by querying the $\text{SageMaker}$ endpoint and gathering real performance metrics ($\text{R}^{2}$ and latency).
+
+
+http://googleusercontent.com/immersive_entry_chip/0
+
+### Agent 3: Selection Agent (`model_selector.py`)
+
+Implements the deterministic **Pareto Optimization** algorithm for selecting the winner and determining if a mutation is required.
+
+
+http://googleusercontent.com/immersive_entry_chip/1
+
+### Agent 4: Consciousness Layer (The Critic) (`invoke_bedrock_meta_agent.py`)
+
+Full implementation of the $\text{Bedrock}$ client invocation, system instructions enforcing the Ethical Framework, and JSON response parsing.
+
+
+http://googleusercontent.com/immersive_entry_chip/2
+
+### Agent 5: Reflex Safety Layer (`safety_reflex.py`)
+
+Replaced mock logic with real $\text{SageMaker}$ invocation to audit outputs and includes **Proactive Guardrail** logic for rerouting traffic on failure.
+
+
+http://googleusercontent.com/immersive_entry_chip/3
+
+### Agent 6: Deployment Agent (Nova ACT SDK) (`nova_act_sdk.py`)
+
+Includes the full **Mutation-to-Code Logic** to update the $\text{S3}$ training configuration file and $\text{SageMaker}$ traffic shifting.
+
+
+http://googleusercontent.com/immersive_entry_chip/4
+
+### Agent 7: AetherLink Agent (Human Override Receiver) (`aether_link_agent.py`)
+
+The functional logic for the $\text{API Gateway}$ integration to stop $\text{Step Functions}$ executions.
+
+
+http://googleusercontent.com/immersive_entry_chip/5
