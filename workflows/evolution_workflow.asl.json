@@ -1,0 +1,102 @@
+{
+  "Comment": "BioSynapse Cloud Micro-Evolution Cycle",
+  "StartAt": "AgentCoordination",
+  "States": {
+
+    "AgentCoordination": {
+      "Type": "Parallel",
+      "Comment": "NeuroAgent, EnviroAgent, and SocioAgent run their micro-models concurrently.",
+      "Branches": [
+        {"StartAt": "NeuroAgentTask", "States": {"NeuroAgentTask": {"Type": "Task", "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync", "End": true}}},
+        {"StartAt": "EnviroAgentTask", "States": {"EnviroAgentTask": {"Type": "Task", "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync", "End": true}}},
+        {"StartAt": "SocioAgentTask", "States": {"SocioAgentTask": {"Type": "Task", "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync", "End": true}}}
+      ],
+      "Next": "EvaluationPhase"
+    },
+
+    "EvaluationPhase": {
+      "Type": "Task",
+      "Comment": "Runs the ModelEvaluator Lambda to score all new models (genes).",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:REGION:ACCOUNT_ID:function:BioSynapse-ModelEvaluator",
+        "Payload.$": "$"
+      },
+      "ResultPath": "$.EvaluationResults",
+      "Next": "SelectionPhase"
+    },
+
+    "SelectionPhase": {
+      "Type": "Task",
+      "Comment": "The ModelSelector chooses the model with the highest fitness score (winner).",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:REGION:ACCOUNT_ID:function:BioSynapse-ModelSelector",
+        "Payload.$": "$.EvaluationResults"
+      },
+      "ResultPath": "$.FittestModel",
+      "Next": "SafetyCheck"
+    },
+
+    "SafetyCheck": {
+      "Type": "Task",
+      "Comment": "Reflex Safety Layer check: ensures the winner model's output is ethical/safe.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:REGION:ACCOUNT_ID:function:BioSynapse-SafetyReflex",
+        "Payload.$": "$.FittestModel"
+      },
+      "ResultPath": "$.SafetyStatus",
+      "Next": "CheckSafetyOutcome"
+    },
+    
+    "CheckSafetyOutcome": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.SafetyStatus.status",
+          "StringEquals": "FAIL",
+          "Next": "CriticalFailure"
+        }
+      ],
+      "Default": "MutationDecision"
+    },
+
+    "MutationDecision": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.FittestModel.FitnessScore",
+          "NumericLessThan": 0.85, 
+          "Next": "BedrockMutationDirective"
+        }
+      ],
+      "Default": "NovaDeployment"
+    },
+
+    "BedrockMutationDirective": {
+      "Type": "Task",
+      "Comment": "Invokes the Bedrock Critic to analyze low performance and suggest an epigenetic mutation.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "BioSynapse-Bedrock-Critic",
+        "Payload.$": "$.FittestModel"
+      },
+      "ResultPath": "$.MutationDirective",
+      "Next": "NovaDeployment"
+    },
+    
+    "NovaDeployment": {
+      "Type": "Task",
+      "Comment": "Nova Act SDK deploys the winner/mutant model and updates the API routing.",
+      "Resource": "arn:aws:lambda:REGION:ACCOUNT_ID:function:BioSynapse-NovaActSDK",
+      "End": true
+    },
+    
+    "CriticalFailure": {
+      "Type": "Fail",
+      "Cause": "Safety Reflex triggered. Agent quarantined.",
+      "Error": "SafetyViolation"
+    }
+  }
+}
