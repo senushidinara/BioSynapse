@@ -13,7 +13,15 @@ It unites biological, emotional, and planetary data into a single evolving cogni
 [![View Dashboard](https://img.shields.io/badge/View%20Dashboard-Live-brightgreen?logo=netlify&logoColor=white)](https://68f8d4c019af114b2ac3259b--animated-brioche-fde34e.netlify.app/)
 
 
-[![See My Agents](https://img.shields.io/badge/See%20My%20Agents-Live-brightgreen?logo=netlify&logoColor=white)](https://68f7c7267cd13ee42d2d52ee--marvelous-griffin-a1d5dc.netlify.app/)
+[![See My Agents](https://img.shields.io/badge/See%20My%20Agents-Live-brightgreen?logo=netlify&logoColor=white)](https://68f7c7267cd13ee42d2d52ee--marvelous-griffin-a1d5dc.netlify.app/)v
+
+[![See My Architecture](https://img.shields.io/badge/See%20My%20Architecture-Live-blue?logo=github&logoColor=white)](https://github.com/senushidinara/BioSynapse)
+
+![Architecture 1](https://github.com/senushidinara/BioSynapse/blob/main/Shared%20Image%202.jpeg?raw=true)
+![Architecture 2](https://github.com/senushidinara/BioSynapse/blob/main/Shared%20Image%203.jpeg?raw=true)
+![Architecture 3](https://github.com/senushidinara/BioSynapse/blob/main/Shared%20Image%205.jpeg?raw=true)
+![Architecture 4](https://github.com/senushidinara/BioSynapse/blob/main/Shared%20Image.jpeg?raw=true)
+
 ---
 
 ## Table of Contents
