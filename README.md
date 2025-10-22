@@ -10,7 +10,7 @@
 
 It unites biological, emotional, and planetary data into a single evolving cognition — a bio-neural fuel network that continuously improves its understanding of Earth’s cognitive, emotional, and ecological health.  
 
-
+[![View Dashboard](https://img.shields.io/badge/View%20Dashboard-Live-brightgreen?logo=netlify&logoColor=white)](https://68f8d4c019af114b2ac3259b--animated-brioche-fde34e.netlify.app/)
 
 ---
 
