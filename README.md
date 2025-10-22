@@ -12,6 +12,8 @@ It unites biological, emotional, and planetary data into a single evolving cogni
 
 [![View Dashboard](https://img.shields.io/badge/View%20Dashboard-Live-brightgreen?logo=netlify&logoColor=white)](https://68f8d4c019af114b2ac3259b--animated-brioche-fde34e.netlify.app/)
 
+
+[![See My Agents](https://img.shields.io/badge/See%20My%20Agents-Live-brightgreen?logo=netlify&logoColor=white)](https://68f7c7267cd13ee42d2d52ee--marvelous-griffin-a1d5dc.netlify.app/)
 ---
 
 ## Table of Contents
