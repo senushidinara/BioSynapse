@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: BioSynapse Cloud MVP - Core Evolutionary Architecture
+
+Parameters:
+  CodeBucketName:
+    Type: String
+    Description: S3 bucket where Lambda code zip files are stored. (e.g., my-biosynapse-code)
+
+Resources:
+  # 1. Data Core Layer (S3)
+  DataLakeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'biosynapse-datalake-${AWS::AccountId}'
+
+  # 2. Memory Layer (DynamoDB)
+  SynapticMemoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: BioSynapse-Synaptic-Memory
+      AttributeDefinitions:
+        - AttributeName: agent_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: agent_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  # 3. IAM Roles (Permissions)
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+        - PolicyName: BioSynapseLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ['s3:PutObject', 's3:GetObject', 's3:ListBucket']
+                Resource: [!GetAtt DataLakeBucket.Arn, !Sub '${DataLakeBucket.Arn}/*']
+              - Effect: Allow
+                Action: ['dynamodb:*']
+                Resource: !GetAtt SynapticMemoryTable.Arn
+              - Effect: Allow
+                Action: 'bedrock:InvokeModel'
+                Resource: '*'
+              - Effect: Allow
+                Action: ['states:StartExecution', 'states:StopExecution']
+                Resource: !Sub 'arn:aws:states:${AWS::Region}:${AWS::AccountId}:stateMachine:BioSynapseEvolutionCycle'
+
+  # 4. Lambda Functions (Application Logic)
+  PreprocessingLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: BioSynapse-Preprocessing
+      Handler: preprocess_biosignals.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.9
+      Timeout: 30
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: src/lambda/preprocess_biosignals.zip
+
+  BedrockCriticLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: BioSynapse-Bedrock-Critic
+      Handler: invoke_bedrock_meta_agent.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.9
+      Timeout: 60
+      Code:
+        S3Bucket: !Ref CodeBucketName
+        S3Key: src/lambda/invoke_bedrock_meta_agent.zip
+
+  # 5. Step Functions Workflow (Meta-Synaptic Layer - The Orchestrator)
+  EvolutionStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: BioSynapseEvolutionCycle
+      DefinitionS3Location:
+        Bucket: !Ref CodeBucketName
+        Key: workflows/evolution_workflow.asl.json # Assumes this file is uploaded separately
+      RoleArn: !GetAtt StatesExecutionRole.Arn
+
+  # IAM Role for Step Functions
+  StatesExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: states.amazonaws.com }
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: StepFunctionsLambdaInvokePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'lambda:InvokeFunction'
+                # Note: The ASL references are placeholders; in a real deployment, 
+                # you must ensure these ARNs are correct for your environment.
+                Resource: 
+                  - !GetAtt PreprocessingLambda.Arn
+                  - !GetAtt BedrockCriticLambda.Arn
+                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:BioSynapse-ModelEvaluator'
+                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:BioSynapse-ModelSelector'
+                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:BioSynapse-SafetyReflex'
+                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:BioSynapse-NovaActSDK'
+              - Effect: Allow
+                Action: 'sagemaker:CreateTrainingJob'
+                Resource: '*'
